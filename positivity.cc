@@ -42,6 +42,8 @@ using v8::Integer;
 using v8::Exception;
 using v8::String;
 
+const double MAX32 = 4294967295;
+
 void Initialize(const FunctionCallbackInfo<Value>& args){
 	for (int i = 0; i < 256; ++i){
 		randrsl[i] = get_random_uint32();
@@ -50,12 +52,18 @@ void Initialize(const FunctionCallbackInfo<Value>& args){
 	get_rand();
 }
 
-void Random(const FunctionCallbackInfo<Value>& args){
+void getInt(const FunctionCallbackInfo<Value>& args){
 	Isolate* isolate = args.GetIsolate();
 	args.GetReturnValue().Set(Integer::NewFromUnsigned(isolate, get_rand()));
 }
 
-void Randint(const FunctionCallbackInfo<Value>& args){
+void getFloat(const FunctionCallbackInfo<Value>& args){
+	Isolate* isolate = args.GetIsolate();
+	double randomNumber = ((double) get_rand() / MAX32);
+	args.GetReturnValue().Set(Number::New(isolate, randomNumber));
+}
+
+void getIntInRange(const FunctionCallbackInfo<Value>& args){
 	Isolate* isolate = args.GetIsolate();
 	if (args.Length() != 2){
 		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Incorrect number of arguments")));
@@ -84,10 +92,37 @@ void Randint(const FunctionCallbackInfo<Value>& args){
 	args.GetReturnValue().Set(Integer::NewFromUnsigned(isolate, randomNumber));
 }
 
+void getFloatInRange(const FunctionCallbackInfo<Value>& args){
+	Isolate* isolate = args.GetIsolate();
+	if (args.Length() != 2){
+		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Incorrect number of arguments")));
+		return;
+	}
+
+	if (!args[0]->IsNumber() || !args[1]->IsNumber()) {
+		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Arguments are of the wrong type")));
+		return;
+	}
+
+	if (args[0]->NumberValue() > args[1]->NumberValue()){
+		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Min is greater than max")));
+		return;
+	}
+
+	double min = args[0]->NumberValue(), max = args[1]->NumberValue();
+
+	double f = (double) get_rand() / MAX32;
+  double randomNumber = min + f * (max - min);
+
+	args.GetReturnValue().Set(Number::New(isolate, randomNumber));
+}
+
 void init(Local<Object> exports) {
-	NODE_SET_METHOD(exports, "Random", Random);
+	NODE_SET_METHOD(exports, "getInt", getInt);
+	NODE_SET_METHOD(exports, "getFloat", getFloat);
 	NODE_SET_METHOD(exports, "Initialize", Initialize);
-	NODE_SET_METHOD(exports, "Randint", Randint);
+	NODE_SET_METHOD(exports, "getIntInRange", getIntInRange);
+	NODE_SET_METHOD(exports, "getFloatInRange", getFloatInRange);
 }
 
 NODE_MODULE(addon, init)
