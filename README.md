@@ -1,5 +1,5 @@
 # Positivity
-Positivity is a Node.js module intended to both (sort of) replicate [Python's Random module](https://docs.python.org/3/library/random.html) and implement [ISAAC64](http://burtleburtle.net/bob/rand/isaacafa.html) for cryptographic security and speed. Currently a work in progress, and should not be used in production.
+Positivity is a Node.js module intended to both (sort of) replicate [Python's Random module](https://docs.python.org/3/library/random.html) and implement [ISAAC](http://burtleburtle.net/bob/rand/isaacafa.html) for cryptographic security and speed. Currently a work in progress, and should not be used in production.
 
 ## Installation
 Build, require, and then `positivity.Initialize()`
