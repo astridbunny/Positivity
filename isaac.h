@@ -1,11 +1,3 @@
-/*
-------------------------------------------------------------------------------
-ISAAC.c, modified version of readable.c from http://www.burtleburtle.net/bob/c/readable.c
-(c) Bob Jenkins, March 1996, Public Domain
-Modified by Flora Rosenkreuz, August 2017
-------------------------------------------------------------------------------
-*/
-
 #include <stddef.h>
 #include <stdint.h>
 

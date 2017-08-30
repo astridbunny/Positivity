@@ -3,10 +3,11 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <node.h>
-#include "ISAAC.cc"
+#include <cstring>
+#include "isaac.h"
 
-uint32_t buf_to_uint32(uint8_t *buffer){
-	uint32_t val = 0;
+int32_t buf_to_int32(uint8_t *buffer){
+	int32_t val = 0;
 	val |= buffer[0] << 24;
 	val |= buffer[1] << 16;
 	val |= buffer[2] << 8;
@@ -17,15 +18,15 @@ uint32_t buf_to_uint32(uint8_t *buffer){
 #ifdef _WIN32
 #include <windows.h>
 
-//TODO: windows get_random_uint32()
+//TODO: windows get_random_int32()
 
 #else
 #include <sys/random.h>
 
-uint32_t get_random_uint32(){
+int32_t get_random_int32(){
 	uint8_t buff[4];
 	getrandom(buff, 4, GRND_NONBLOCK);
-	uint32_t val = buf_to_uint32(buff);
+	int32_t val = buf_to_int32(buff);
 	return val;
 }
 
@@ -42,41 +43,49 @@ using v8::Integer;
 using v8::Exception;
 using v8::String;
 
-const double MAX32 = 4294967295;
+const int32_t MAX32 = 2147483647;
+
+int check_args_for_range(Isolate* isolate, const FunctionCallbackInfo<Value>& args){
+	if (args.Length() != 2){
+		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Incorrect number of arguments")));
+		return false;
+	}
+
+	if (!args[0]->IsNumber() || !args[1]->IsNumber()) {
+		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Arguments are of the wrong type")));
+		return false;
+	}
+
+	if (args[0]->NumberValue() > args[1]->NumberValue()){
+		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Min is greater than max")));
+		return false;
+	}
+
+	return true;
+}
 
 void Initialize(const FunctionCallbackInfo<Value>& args){
 	for (int i = 0; i < 256; ++i){
-		randrsl[i] = get_random_uint32();
+		randrsl[i] = get_random_int32();
 	}
-	randinit(get_random_uint32());
+	randinit(get_random_int32());
 	get_rand();
 }
 
 void getInt(const FunctionCallbackInfo<Value>& args){
 	Isolate* isolate = args.GetIsolate();
-	args.GetReturnValue().Set(Integer::NewFromUnsigned(isolate, get_rand()));
+	args.GetReturnValue().Set(Integer::New(isolate, get_rand()));
 }
 
 void getFloat(const FunctionCallbackInfo<Value>& args){
 	Isolate* isolate = args.GetIsolate();
-	double randomNumber = ((double) get_rand() / MAX32);
+	double randomNumber = ((double)(int32_t)get_rand() / MAX32);
 	args.GetReturnValue().Set(Number::New(isolate, randomNumber));
 }
 
 void getIntInRange(const FunctionCallbackInfo<Value>& args){
 	Isolate* isolate = args.GetIsolate();
-	if (args.Length() != 2){
-		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Incorrect number of arguments")));
-		return;
-	}
-
-	if (!args[0]->IsNumber() || !args[1]->IsNumber()) {
-		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Arguments are of the wrong type")));
-		return;
-	}
-
-	if (args[0]->NumberValue() > args[1]->NumberValue()){
-		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Min is greater than max")));
+	if (!check_args_for_range(isolate, args)){
 		return;
 	}
 
@@ -85,33 +94,22 @@ void getIntInRange(const FunctionCallbackInfo<Value>& args){
 	(val1 > 0) ? val1 += 0.5 : val1 -= 0.5;
 	(val2 > 0) ? val2 += 0.5 : val2 -= 0.5;
 
-	uint32_t min = (uint32_t)val1;
-	uint32_t max = (uint32_t)val2;
+	int32_t min = (int32_t)val1;
+	int32_t max = (int32_t)val2;
 
-	uint32_t randomNumber = get_rand()%(max-min + 1) + min;
-	args.GetReturnValue().Set(Integer::NewFromUnsigned(isolate, randomNumber));
+	int32_t randomNumber = (int32_t) get_rand()%(max-min + 1) + min;
+	args.GetReturnValue().Set(Integer::New(isolate, randomNumber));
 }
 
 void getFloatInRange(const FunctionCallbackInfo<Value>& args){
 	Isolate* isolate = args.GetIsolate();
-	if (args.Length() != 2){
-		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Incorrect number of arguments")));
-		return;
-	}
-
-	if (!args[0]->IsNumber() || !args[1]->IsNumber()) {
-		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Arguments are of the wrong type")));
-		return;
-	}
-
-	if (args[0]->NumberValue() > args[1]->NumberValue()){
-		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Min is greater than max")));
+	if (!check_args_for_range(isolate, args)){
 		return;
 	}
 
 	double min = args[0]->NumberValue(), max = args[1]->NumberValue();
 
-	double f = (double) get_rand() / MAX32;
+	double f = (double) (int32_t) get_rand() / MAX32;
   double randomNumber = min + f * (max - min);
 
 	args.GetReturnValue().Set(Number::New(isolate, randomNumber));

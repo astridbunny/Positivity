@@ -1,8 +1,22 @@
 # Positivity
-node module intended to be a sort of clone of python's random module with a focus on cryptographic security and speed
+Positivity is a Node.js module intended to both (sort of) replicate [Python's Random module](https://docs.python.org/3/library/random.html) and implement [ISAAC64](http://burtleburtle.net/bob/rand/isaacafa.html) for cryptographic security and speed. Currently a work in progress, and should not be used in production.
 
-this is nowhere near done so it looks like shit right now
+## Installation
+Build, require, and then `positivity.Initialize()`
 
-uses ISAAC for random number generation and system entropy (urandom, cryptgenrandom) for seeds
+## API
 
-i don't actually know how node-gyp works don't make fun of me ok
+### `positivity.Initialize()`
+Initializes the random number generator. Should be called before any functions are used.
+
+### `positivity.getInt()`
+Returns a random integer between -2147483647 and 2147483647.
+
+### `positivity.getFloat()`
+Returns a random floating point number between -1 and 1.
+
+### `positivity.getIntInRange(min, max)`
+Returns a random integer between `min` and `max`.
+
+### `positivity.getFloatInRange(min, max)`
+Returns a random floating point number between `min` and `max`.
