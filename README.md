@@ -20,3 +20,6 @@ Returns a random integer between `min` and `max`.
 
 ### `positivity.getFloatInRange(min, max)`
 Returns a random floating point number between `min` and `max`.
+
+### `positivity.Choice(arr)`
+Returns a random element from the array `arr`.
