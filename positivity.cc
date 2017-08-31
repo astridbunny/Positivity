@@ -42,6 +42,8 @@ using v8::Number;
 using v8::Integer;
 using v8::Exception;
 using v8::String;
+using v8::Array;
+using v8::Handle;
 
 const int32_t MAX32 = 2147483647;
 
@@ -58,6 +60,19 @@ int check_args_for_range(Isolate* isolate, const FunctionCallbackInfo<Value>& ar
 
 	if (args[0]->NumberValue() > args[1]->NumberValue()){
 		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Min is greater than max")));
+		return false;
+	}
+
+	return true;
+}
+
+int check_args_for_array(Isolate* isolate, const FunctionCallbackInfo<Value>& args){
+	if (args.Length() != 1){
+		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Incorrect number of arguments")));
+		return false;
+	}
+	if (!args[0]->IsArray()){
+		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Arguments are of the wrong type")));
 		return false;
 	}
 
@@ -115,12 +130,24 @@ void getFloatInRange(const FunctionCallbackInfo<Value>& args){
 	args.GetReturnValue().Set(Number::New(isolate, randomNumber));
 }
 
+void Choice(const FunctionCallbackInfo<Value>& args){
+	Isolate* isolate = args.GetIsolate();
+	if (!check_args_for_array(isolate, args)){
+		return;
+	}
+	Handle<Array> array = Handle<Array>::Cast(args[0]);
+	int32_t randomNumber = (int32_t) get_rand()%(array->Length());
+	Local<Value> obj = array->Get(randomNumber);
+	args.GetReturnValue().Set(obj);
+}
+
 void init(Local<Object> exports) {
 	NODE_SET_METHOD(exports, "getInt", getInt);
 	NODE_SET_METHOD(exports, "getFloat", getFloat);
 	NODE_SET_METHOD(exports, "Initialize", Initialize);
 	NODE_SET_METHOD(exports, "getIntInRange", getIntInRange);
 	NODE_SET_METHOD(exports, "getFloatInRange", getFloatInRange);
+	NODE_SET_METHOD(exports, "Choice", Choice);
 }
 
 NODE_MODULE(addon, init)
