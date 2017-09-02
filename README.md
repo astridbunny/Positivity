@@ -23,3 +23,6 @@ Returns a random floating point number between `min` and `max`.
 
 ### `positivity.Choice(arr)`
 Returns a random element from the array `arr`.
+
+### `positivity.Bytes(length)`
+Returns a buffer with `length` random bytes.

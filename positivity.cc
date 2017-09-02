@@ -1,9 +1,12 @@
 //oh man this shit isn't anywhere near done yet so the code looks like shit
+//TODO fisher_yates and choices and shuffle (they do nothing right now)
+
 
 #include <stdio.h>
 #include <stddef.h>
 #include <node.h>
 #include <cstring>
+#include <nan.h>
 #include "isaac.h"
 
 int32_t buf_to_int32(uint8_t *buffer){
@@ -66,8 +69,8 @@ int check_args_for_range(Isolate* isolate, const FunctionCallbackInfo<Value>& ar
 	return true;
 }
 
-int check_args_for_array(Isolate* isolate, const FunctionCallbackInfo<Value>& args){
-	if (args.Length() != 1){
+int check_args_for_array(Isolate* isolate, const FunctionCallbackInfo<Value>& args, int argc){
+	if (args.Length() != argc){
 		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Incorrect number of arguments")));
 		return false;
 	}
@@ -76,7 +79,26 @@ int check_args_for_array(Isolate* isolate, const FunctionCallbackInfo<Value>& ar
 		return false;
 	}
 
+	if(argc == 2){
+		if (!args[1]->IsNumber()){
+			isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Arguments are of the wrong type")));
+			return false;
+		} else {
+			if (args[1]->NumberValue() > Handle<Array>::Cast(args[0])->Length()){
+				isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Sample size is longer than array length")));
+			}
+		}
+	}
+
 	return true;
+}
+
+Local<Array> fisher_yates(Local<Array> arr, uint32_t samplesize, Isolate* isolate){
+	if (arr->Length() < samplesize) Local<Array> samples = Array::New(isolate, samplesize);
+
+	for (uint32_t i = 0; i < arr->Length(); i++){
+	}
+	return arr;
 }
 
 void Initialize(const FunctionCallbackInfo<Value>& args){
@@ -132,13 +154,67 @@ void getFloatInRange(const FunctionCallbackInfo<Value>& args){
 
 void Choice(const FunctionCallbackInfo<Value>& args){
 	Isolate* isolate = args.GetIsolate();
-	if (!check_args_for_array(isolate, args)){
+	if (!check_args_for_array(isolate, args, 1)){
 		return;
 	}
-	Handle<Array> array = Handle<Array>::Cast(args[0]);
+	Local<Array> array = Local<Array>::Cast(args[0]);
 	int32_t randomNumber = (int32_t) get_rand()%(array->Length());
 	Local<Value> obj = array->Get(randomNumber);
 	args.GetReturnValue().Set(obj);
+}
+
+void Choices(const FunctionCallbackInfo<Value>& args){
+	Isolate* isolate = args.GetIsolate();
+	if(!check_args_for_array(isolate, args, 2)){
+		return;
+	}
+	Local<Array> array = Local<Array>::Cast(args[0]);
+	Local<Array> samples = fisher_yates(array, args[1]->NumberValue(), isolate);
+
+	args.GetReturnValue().Set(samples);
+}
+
+void Shuffle(const FunctionCallbackInfo<Value>& args){
+	Isolate* isolate = args.GetIsolate();
+	if(!check_args_for_array(isolate, args, 1)){
+		return;
+	}
+	Local<Array> array = Local<Array>::Cast(args[0]);
+	Local<Array> shuffled = fisher_yates(array, array->Length(), isolate);
+
+	args.GetReturnValue().Set(shuffled);
+}
+
+void Bytes(const FunctionCallbackInfo<Value>& args){
+	Isolate* isolate = args.GetIsolate();
+
+	if (args.Length() != 1){
+		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Incorrect number of arguments")));
+		return;
+	}
+	if (!args[0]->IsNumber()){
+		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Arguments are of the wrong type")));
+		return;
+	}
+	if (args[0]->NumberValue() < 1){
+		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Argument is too small")));
+		return;
+	}
+	int size = args[0]->NumberValue();
+	char* data = new char[size];
+
+	int32_t r = get_rand();
+
+	for (int i = 0; i < args[0]->NumberValue(); i++){
+		for (int j = 0; j < 4; j++){
+			data[i] = (r >> (8*j)) & 0xff;
+		}
+		r = get_rand();
+	}
+	uint32_t s = args[0]->NumberValue();
+	Nan::MaybeLocal<v8::Object> buf = Nan::NewBuffer(data, s);
+	args.GetReturnValue().Set(buf.ToLocalChecked());
+
 }
 
 void init(Local<Object> exports) {
@@ -148,6 +224,9 @@ void init(Local<Object> exports) {
 	NODE_SET_METHOD(exports, "getIntInRange", getIntInRange);
 	NODE_SET_METHOD(exports, "getFloatInRange", getFloatInRange);
 	NODE_SET_METHOD(exports, "Choice", Choice);
+	NODE_SET_METHOD(exports, "Choices", Choices);
+	NODE_SET_METHOD(exports, "Shuffle", Shuffle);
+	NODE_SET_METHOD(exports, "Bytes", Bytes);
 }
 
 NODE_MODULE(addon, init)
