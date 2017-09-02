@@ -204,12 +204,14 @@ void Bytes(const FunctionCallbackInfo<Value>& args){
 	char* data = new char[size];
 
 	int32_t r = get_rand();
-
+	int counter = 0;
 	for (int i = 0; i < args[0]->NumberValue(); i++){
-		for (int j = 0; j < 4; j++){
-			data[i] = (r >> (8*j)) & 0xff;
+		data[i] = (r >> (8*counter)) & 0xff;
+		counter++;
+		if (counter == 4){
+			counter = 0;
+			r = get_rand();
 		}
-		r = get_rand();
 	}
 	uint32_t s = args[0]->NumberValue();
 	Nan::MaybeLocal<v8::Object> buf = Nan::NewBuffer(data, s);
