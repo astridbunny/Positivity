@@ -18,8 +18,14 @@ int32_t buf_to_int32(uint8_t *buffer){
 
 #ifdef _WIN32
 #include <windows.h>
+HCRYPTPROV hCryptProv;
 
-//TODO: windows get_random_int32()
+int32_t get_random_int32(){
+	uint8_t buff[4];
+	CryptGenRandom(hCryptProv, 4, buff)
+	int32_t val = buf_to_int32(buff);
+	return val;
+}
 
 #else
 #include <sys/random.h>
