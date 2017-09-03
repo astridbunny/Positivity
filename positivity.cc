@@ -167,6 +167,10 @@ void Choice(const FunctionCallbackInfo<Value>& args){
 		return;
 	}
 	Local<Array> array = Local<Array>::Cast(args[0]);
+	if (array->Length() < 1){
+		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Array is empty")));
+		return;
+	}
 	int32_t randomNumber = (int32_t) get_rand()%(array->Length());
 	Local<Value> obj = array->Get(randomNumber);
 	args.GetReturnValue().Set(obj);
@@ -182,6 +186,10 @@ void Choices(const FunctionCallbackInfo<Value>& args){
 		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Sample size is either 0 or too big")));
 		return;
 	}
+	if (array->Length() < 1){
+		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Array is empty")));
+		return;
+	}
 	Local<Array> samples = fisher_yates(array, args[1]->NumberValue(), isolate);
 
 	args.GetReturnValue().Set(samples);
@@ -193,6 +201,10 @@ void Shuffle(const FunctionCallbackInfo<Value>& args){
 		return;
 	}
 	Local<Array> array = Local<Array>::Cast(args[0]);
+	if (array->Length() < 1){
+		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Array is empty")));
+		return;
+	}
 	Local<Array> shuffled = fisher_yates(array, array->Length(), isolate);
 
 	args.GetReturnValue().Set(shuffled);
