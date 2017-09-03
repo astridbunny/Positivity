@@ -24,5 +24,11 @@ Returns a random floating point number between `min` and `max`.
 ### `positivity.Choice(arr)`
 Returns a random element from the array `arr`.
 
+### `positivity.Choices(arr, size)`
+Returns `size` random samples from array `arr`.
+
+### `positivity.Shuffle(arr)`
+Returns `arr` after being processed through a Fisher-Yates shuffle.
+
 ### `positivity.Bytes(length)`
 Returns a buffer with `length` random bytes.

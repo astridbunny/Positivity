@@ -1,6 +1,4 @@
 //oh man this shit isn't anywhere near done yet so the code looks like shit
-//TODO fisher_yates and choices and shuffle (they do nothing right now)
-
 
 #include <stdio.h>
 #include <stddef.h>
@@ -94,11 +92,22 @@ int check_args_for_array(Isolate* isolate, const FunctionCallbackInfo<Value>& ar
 }
 
 Local<Array> fisher_yates(Local<Array> arr, uint32_t samplesize, Isolate* isolate){
-	if (arr->Length() < samplesize) Local<Array> samples = Array::New(isolate, samplesize);
+	Local<Array> samples = Array::New(isolate, samplesize);
 
-	for (uint32_t i = 0; i < arr->Length(); i++){
+	for (uint32_t i = arr->Length() - 1; i>0; --i){
+		int r = get_rand() % (i + 1);
+		auto x = arr->Get(i);
+		auto y = arr->Get(r);
+		arr->Set(r, x);
+		arr->Set(i, y);
 	}
-	return arr;
+
+	if (samplesize < arr->Length()){
+		for(uint32_t j = 0; j < samplesize; ++j){
+			samples->Set(j, arr->Get(j));
+		}
+		return samples;
+	} else return arr;
 }
 
 void Initialize(const FunctionCallbackInfo<Value>& args){
@@ -169,6 +178,10 @@ void Choices(const FunctionCallbackInfo<Value>& args){
 		return;
 	}
 	Local<Array> array = Local<Array>::Cast(args[0]);
+	if (args[0]->NumberValue() < 1 || args[0]->NumberValue() > array->Length()){
+		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Sample size is either 0 or too big")));
+		return;
+	}
 	Local<Array> samples = fisher_yates(array, args[1]->NumberValue(), isolate);
 
 	args.GetReturnValue().Set(samples);
@@ -213,8 +226,7 @@ void Bytes(const FunctionCallbackInfo<Value>& args){
 			r = get_rand();
 		}
 	}
-	uint32_t s = args[0]->NumberValue();
-	Nan::MaybeLocal<v8::Object> buf = Nan::NewBuffer(data, s);
+	Nan::MaybeLocal<v8::Object> buf = Nan::NewBuffer(data, size);
 	args.GetReturnValue().Set(buf.ToLocalChecked());
 
 }
