@@ -6,6 +6,9 @@
 #include <cstring>
 #include <nan.h>
 #include "isaac.h"
+#include <uv.h>
+#include <iostream>
+#include <vector>
 
 int32_t buf_to_int32(uint8_t *buffer){
 	int32_t val = 0;
@@ -22,7 +25,7 @@ HCRYPTPROV hCryptProv;
 
 int32_t get_random_int32(){
 	uint8_t buff[4];
-	CryptGenRandom(hCryptProv, 4, buff)
+	CryptGenRandom(hCryptProv, 4, buff);
 	int32_t val = buf_to_int32(buff);
 	return val;
 }
@@ -40,19 +43,16 @@ int32_t get_random_int32(){
 #endif
 
 namespace positivity{
-using v8::FunctionCallbackInfo;
-using v8::Isolate;
-using v8::Local;
-using v8::Object;
-using v8::Value;
-using v8::Number;
-using v8::Integer;
-using v8::Exception;
-using v8::String;
-using v8::Array;
-using v8::Handle;
+using namespace v8;
+
+struct Baton {
+	uv_work_t request;
+	Persistent<Function> callback;
+};
 
 const int32_t MAX32 = 2147483647;
+
+/* Argument Checking */
 
 int check_args_for_range(Isolate* isolate, const FunctionCallbackInfo<Value>& args){
 	if (args.Length() != 2){
@@ -97,7 +97,9 @@ int check_args_for_array(Isolate* isolate, const FunctionCallbackInfo<Value>& ar
 	return true;
 }
 
-Local<Array> fisher_yates(Local<Array> arr, uint32_t samplesize, Isolate* isolate){
+/* Misc Functions */
+
+Local<Array> shuffle(Local<Array> arr, uint32_t samplesize, Isolate* isolate){
 	Local<Array> samples = Array::New(isolate, samplesize);
 
 	for (uint32_t i = arr->Length() - 1; i>0; --i){
@@ -123,6 +125,8 @@ void Initialize(const FunctionCallbackInfo<Value>& args){
 	randinit(get_random_int32());
 	get_rand();
 }
+
+/* Methods */
 
 void getInt(const FunctionCallbackInfo<Value>& args){
 	Isolate* isolate = args.GetIsolate();
@@ -196,7 +200,7 @@ void Choices(const FunctionCallbackInfo<Value>& args){
 		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Array is empty")));
 		return;
 	}
-	Local<Array> samples = fisher_yates(array, args[1]->NumberValue(), isolate);
+	Local<Array> samples = shuffle(array, args[1]->NumberValue(), isolate);
 
 	args.GetReturnValue().Set(samples);
 }
@@ -211,19 +215,61 @@ void Shuffle(const FunctionCallbackInfo<Value>& args){
 		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Array is empty")));
 		return;
 	}
-	Local<Array> shuffled = fisher_yates(array, array->Length(), isolate);
+	Local<Array> shuffled = shuffle(array, array->Length(), isolate);
 
 	args.GetReturnValue().Set(shuffled);
+}
+
+struct BytesBaton : Baton {
+	int range;
+	std::vector<char> buf;
+};
+
+void BytesAsync(uv_work_t* req){
+	BytesBaton * baton = static_cast<BytesBaton *>(req->data);
+
+	int32_t r = get_rand();
+	int counter = 0;
+	for (int i = 0; i < baton->range; i++){
+		baton->buf.push_back((r >> (8*counter)) & 0xff);
+		counter++;
+		if (counter == 4){
+			counter = 0;
+			r = get_rand();
+		}
+	}
+}
+
+static void BytesAsyncComplete(uv_work_t *req,int status){
+  Isolate* isolate = Isolate::GetCurrent();
+	v8::HandleScope handleScope(isolate);
+
+	BytesBaton * baton = static_cast<BytesBaton *>(req->data);
+
+	char* data = new char[baton->range];
+	for (int i = 0; i < baton->range; i++){
+		data[i] = baton->buf.at(i);
+	}
+
+	Nan::MaybeLocal<v8::Object> buffer = Nan::NewBuffer(data, baton->range);
+
+	Handle<Value> argv[] = {buffer.ToLocalChecked()};
+
+	Local<Function>::New(isolate, baton->callback)->Call(isolate->GetCurrentContext()->Global(), 1, argv);
+
+	baton->callback.Reset();
+
+	delete baton;
 }
 
 void Bytes(const FunctionCallbackInfo<Value>& args){
 	Isolate* isolate = args.GetIsolate();
 
-	if (args.Length() != 1){
+	if (args.Length() != 2){
 		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Incorrect number of arguments")));
 		return;
 	}
-	if (!args[0]->IsNumber()){
+	if (!args[0]->IsNumber() || !args[1]->IsFunction()){
 		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Arguments are of the wrong type")));
 		return;
 	}
@@ -231,22 +277,17 @@ void Bytes(const FunctionCallbackInfo<Value>& args){
 		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Argument is too small")));
 		return;
 	}
-	int size = args[0]->NumberValue();
-	char* data = new char[size];
 
-	int32_t r = get_rand();
-	int counter = 0;
-	for (int i = 0; i < args[0]->NumberValue(); i++){
-		data[i] = (r >> (8*counter)) & 0xff;
-		counter++;
-		if (counter == 4){
-			counter = 0;
-			r = get_rand();
-		}
-	}
-	Nan::MaybeLocal<v8::Object> buf = Nan::NewBuffer(data, size);
-	args.GetReturnValue().Set(buf.ToLocalChecked());
+	BytesBaton * baton = new BytesBaton();
 
+	baton->request.data = baton;
+	baton->range = args[0]->NumberValue();
+	Local<Function> callback = Local<Function>::Cast(args[1]);
+	baton->callback.Reset(isolate, callback);
+
+	uv_queue_work(uv_default_loop(),&baton->request, BytesAsync, BytesAsyncComplete);
+
+	args.GetReturnValue().Set(Undefined(isolate));
 }
 
 void init(Local<Object> exports) {

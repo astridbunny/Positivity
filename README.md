@@ -28,7 +28,7 @@ Returns a random element from the array `arr`.
 Returns `size` random samples from array `arr`.
 
 ### `positivity.Shuffle(arr)`
-Returns `arr` after being processed through a Fisher-Yates shuffle.
+Returns `arr` after being shuffled.
 
 ### `positivity.Bytes(length)`
 Returns a buffer with `length` random bytes.
