@@ -1,5 +1,3 @@
-//oh man this shit isn't anywhere near done yet so the code looks like shit
-
 #include <stdio.h>
 #include <stddef.h>
 #include <node.h>
@@ -186,6 +184,11 @@ void Choice(const FunctionCallbackInfo<Value>& args){
 	args.GetReturnValue().Set(obj);
 }
 
+struct ShuffleBaton : baton {
+	Nan::MaybeLocal<Array> arr;
+	int range;
+};
+
 void Choices(const FunctionCallbackInfo<Value>& args){
 	Isolate* isolate = args.GetIsolate();
 	if(!check_args_for_array(isolate, args, 2)){
@@ -242,7 +245,7 @@ void BytesAsync(uv_work_t* req){
 
 static void BytesAsyncComplete(uv_work_t *req,int status){
   Isolate* isolate = Isolate::GetCurrent();
-	v8::HandleScope handleScope(isolate);
+	HandleScope handleScope(isolate);
 
 	BytesBaton * baton = static_cast<BytesBaton *>(req->data);
 
@@ -251,7 +254,7 @@ static void BytesAsyncComplete(uv_work_t *req,int status){
 		data[i] = baton->buf.at(i);
 	}
 
-	Nan::MaybeLocal<v8::Object> buffer = Nan::NewBuffer(data, baton->range);
+	Nan::MaybeLocal<Object> buffer = Nan::NewBuffer(data, baton->range);
 
 	Handle<Value> argv[] = {buffer.ToLocalChecked()};
 
@@ -265,29 +268,64 @@ static void BytesAsyncComplete(uv_work_t *req,int status){
 void Bytes(const FunctionCallbackInfo<Value>& args){
 	Isolate* isolate = args.GetIsolate();
 
-	if (args.Length() != 2){
+	if (args.Length() == 1){
+
+		if (!args[0]->IsNumber() ){
+			isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Arguments are of the wrong type")));
+			return;
+		}
+
+		if (args[0]->NumberValue() < 1){
+			isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Argument is too small")));
+			return;
+		}
+
+		int range = args[0]->NumberValue();
+		char * data = new char[range];
+
+		int32_t r = get_rand();
+		int counter = 0;
+		for (int i = 0; i < range; i++){
+			data[i] = (r >> (8*counter)) & 0xff;
+			counter++;
+			if (counter == 4){
+				counter = 0;
+				r = get_rand();
+			}
+		}
+		Nan::MaybeLocal<Object> buffer = Nan::NewBuffer(data, range);
+
+		args.GetReturnValue().Set(buffer.ToLocalChecked());
+	}
+
+	else if (args.Length() == 2){
+
+		if (!args[0]->IsNumber() || !args[1]->IsFunction()){
+			isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Arguments are of the wrong type")));
+			return;
+		}
+
+		if (args[0]->NumberValue() < 1){
+			isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Argument is too small")));
+			return;
+		}
+
+		BytesBaton * baton = new BytesBaton();
+
+		baton->request.data = baton;
+		baton->range = args[0]->NumberValue();
+		Local<Function> callback = Local<Function>::Cast(args[1]);
+		baton->callback.Reset(isolate, callback);
+
+		uv_queue_work(uv_default_loop(),&baton->request, BytesAsync, BytesAsyncComplete);
+
+		args.GetReturnValue().Set(Undefined(isolate));
+	}
+
+	else {
 		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Incorrect number of arguments")));
 		return;
 	}
-	if (!args[0]->IsNumber() || !args[1]->IsFunction()){
-		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Arguments are of the wrong type")));
-		return;
-	}
-	if (args[0]->NumberValue() < 1){
-		isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Argument is too small")));
-		return;
-	}
-
-	BytesBaton * baton = new BytesBaton();
-
-	baton->request.data = baton;
-	baton->range = args[0]->NumberValue();
-	Local<Function> callback = Local<Function>::Cast(args[1]);
-	baton->callback.Reset(isolate, callback);
-
-	uv_queue_work(uv_default_loop(),&baton->request, BytesAsync, BytesAsyncComplete);
-
-	args.GetReturnValue().Set(Undefined(isolate));
 }
 
 void init(Local<Object> exports) {

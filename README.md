@@ -1,10 +1,18 @@
 # Positivity
 Positivity is a Node.js module intended to both (sort of) replicate [Python's Random module](https://docs.python.org/3/library/random.html) and implement [ISAAC](http://burtleburtle.net/bob/rand/isaacafa.html) for cryptographic security and speed. Currently a work in progress, and should not be used in production.
 
+## Why use Positivity?
+### Security
+Positivity implements the [ISAAC](http://burtleburtle.net/bob/rand/isaacafa.html) pseudo-random number generator, which [is cryptographically secure](https://crypto.stackexchange.com/questions/15976/is-isaac-cipher-cryptographically-secure). Seeds are pulled from system-specific sources; /dev/urandom on UNIX-based systems and CryptGenRandom on windows.
+
+### Speed
+When tested with [Benchmark.js](https://benchmarkjs.com/), Positivity has an advantage of several hundred thousand more operations per second over the crypto module.
+
 ## Installation
 Build, require, and then `positivity.Initialize()`
 
 ## API
+All methods (except for Initialize) have an optional callback parameter. If this parameter is not included, methods are not guaranteed to be asynchronous.
 
 ### `positivity.Initialize()`
 Initializes the random number generator. Should be called before any functions are used.
